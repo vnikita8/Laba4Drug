@@ -2,6 +2,7 @@
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using Microsoft.Office.Interop.Excel;
+using Excel = Microsoft.Office.Interop.Excel;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -62,12 +63,13 @@ namespace Laba4Drug
             {
                 MessageBox.Show("Неверные значения");
             }
-            
         }
-        private void button1_Click(object sender, EventArgs e) //Кнопка Сохранить
+
+        private void StartArrayFromTable()
         {
             try
             {
+                startArray = new int[dataGridView1.Rows.Count];
                 for (int cell = 0; cell < dataGridView1.Rows.Count; cell++)
                     startArray[cell] = Convert.ToInt32(dataGridView1[0, cell].Value);
             }
@@ -75,6 +77,11 @@ namespace Laba4Drug
             {
                 MessageBox.Show("Неверные значения");
             }
+        }
+
+        private void button1_Click(object sender, EventArgs e) //Кнопка Сохранить
+        {
+            StartArrayFromTable();
         }
 
         //Bubble
@@ -489,34 +496,105 @@ namespace Laba4Drug
 
         private void excelToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            openFileDialog1.FileName = String.Empty;
-            DialogResult li = openFileDialog1.ShowDialog();
-            if (li != DialogResult.OK) return;
+            if (openFileDialog1.ShowDialog() == DialogResult.Cancel)
+                return;
+            string filename = openFileDialog1.FileName;
+            ParseExcel(filename);
+        }
+
+
+        private void ParseExcel(string filepath)
+        {
+            object rOnly = true;
+            object SaveChanges = false;
+            object MissingObj = System.Reflection.Missing.Value;
+
+            Excel.Application app = new Excel.Application();
+            Excel.Workbooks workbooks = null;
+            Excel.Workbook workbook = null;
+            Excel.Sheets sheets = null;
             try
             {
+                workbooks = app.Workbooks;
+                workbook = workbooks.Open(filepath, MissingObj, rOnly, MissingObj, MissingObj,
+                                            MissingObj, MissingObj, MissingObj, MissingObj, MissingObj,
+                                            MissingObj, MissingObj, MissingObj, MissingObj, MissingObj);
+                // Получение всех страниц докуента
+                sheets = workbook.Sheets;
                 dataGridView1.Rows.Clear();
-                Application ObjWorkExcel = new Application();
-                Workbook ObjWorkBook = ObjWorkExcel.Workbooks.Open(openFileDialog1.FileName, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing); //открыть файл
-                Worksheet ObjWorkSheet = (Worksheet)ObjWorkBook.Sheets[1];
-                var lastCell = ObjWorkSheet.Cells.SpecialCells(XlCellType.xlCellTypeLastCell);
-                string sellx = String.Empty;
-                string selly = String.Empty;
-                for (int i = 0; i < lastCell.Row; i++)
+                int cell = 0;
+                foreach (Excel.Worksheet worksheet in sheets)
                 {
-                    sellx = ObjWorkSheet.Cells[i + 1, 1].Text.ToString();
-                    selly = ObjWorkSheet.Cells[i + 1, 2].Text.ToString();
-                    if (sellx.Trim() != String.Empty && selly.Trim() != String.Empty)
-                        dataGridView1.Rows.Add(sellx, selly);
+                    // Получаем диапазон используемых на странице ячеек
+                    Excel.Range UsedRange = worksheet.UsedRange;
+                    // Получаем строки в используемом диапазоне
+                    Excel.Range urRows = UsedRange.Rows;
+                    // Получаем столбцы в используемом диапазоне
+                    Excel.Range urColums = UsedRange.Columns;
+
+                    // Количества строк и столбцов
+                    int RowsCount = urRows.Count;
+                    int ColumnsCount = urColums.Count;
+                    
+                    for (int i = 1; i <= RowsCount; i++)
+                    {
+                        for (int j = 1; j <= ColumnsCount; j++)
+                        {
+                            Excel.Range CellRange = UsedRange.Cells[i, j];
+                            // Получение текста ячейки
+                            string CellText = (CellRange == null || CellRange.Value2 == null) ? null :
+                                                (CellRange as Excel.Range).Value2.ToString();
+
+                            if (CellText != null)
+                            {
+                                dataGridView1.Rows.Add();
+                                dataGridView1[0, cell].Value = Convert.ToInt32(CellText);
+                                cell++;
+                                /* Обработка текста */
+                            }
+                        }
+                    }
+                    StartArrayFromTable();
+                    //// Очистка неуправляемых ресурсов на каждой итерации
+                    //if (urRows != null) Marshal.ReleaseComObject(urRows);
+                    //if (urColums != null) Marshal.ReleaseComObject(urColums);
+                    //if (UsedRange != null) Marshal.ReleaseComObject(UsedRange);
+                    //if (worksheet != null) Marshal.ReleaseComObject(worksheet);
                 }
-                ObjWorkBook.Close(false, Type.Missing, Type.Missing);
-                ObjWorkExcel.Quit();
-                GC.Collect();
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                MessageBox.Show("При попытке загрузки из Excel произошла обшика!", "Ошибка!");
+                /* Обработка исключений */
+            }
+            finally
+            {
+                ///* Очистка оставшихся неуправляемых ресурсов */
+                //if (sheets != null) Marshal.ReleaseComObject(sheets);
+                //if (workbook != null)
+                //{
+                //    workbook.Close(SaveChanges);
+                //    Marshal.ReleaseComObject(workbook);
+                //    workbook = null;
+                //}
+
+                //if (workbooks != null)
+                //{
+                //    workbooks.Close();
+                //    Marshal.ReleaseComObject(workbooks);
+                //    workbooks = null;
+                //}
+                //if (app != null)
+                //{
+                //    app.Quit();
+                //    Marshal.ReleaseComObject(app);
+                //    app = null;
+                //}
             }
         }
+
+
+
+
         private static readonly string[] Scopes = { SheetsService.Scope.Spreadsheets };
         private const string SpreadsheetId = "1SHINt3UKLZ4p_tyTRnk7DSgmnyG-3Sk9lnxY73fKrhg";
         private const string GoogleCredentialsFileName = "laba4-332110-1ebf8c6441c1.json";
