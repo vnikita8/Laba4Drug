@@ -45,21 +45,41 @@ namespace Laba4Drug
 
         private void GenerateArray_Click(object sender, EventArgs e)
         {
-            dataGridView1.Rows.Clear();
-            int m = Convert.ToInt32(textBox1.Text);
-            Random rnd = new Random();
-            startArray = new int[m];
-            for (int j = 0; j < m; j++)
+            try
             {
-                dataGridView1.Rows.Add();
-                startArray[j] = rnd.Next(1, 1000);
-                dataGridView1[0, j].Value = startArray[j];
+                dataGridView1.Rows.Clear();
+                int m = Convert.ToInt32(textBox1.Text);
+                Random rnd = new Random();
+                startArray = new int[m];
+                for (int j = 0; j < m; j++)
+                {
+                    dataGridView1.Rows.Add();
+                    startArray[j] = rnd.Next(1, 1000);
+                    dataGridView1[0, j].Value = startArray[j];
+                }
+            }
+            catch
+            {
+                MessageBox.Show("Неверные значения");
+            }
+            
+        }
+        private void button1_Click(object sender, EventArgs e) //Кнопка Сохранить
+        {
+            try
+            {
+                for (int cell = 0; cell < dataGridView1.Rows.Count; cell++)
+                    startArray[cell] = Convert.ToInt32(dataGridView1[0, cell].Value);
+            }
+            catch
+            {
+                MessageBox.Show("Неверные значения");
             }
         }
+
         //Bubble
         private void BubbleSort()
         {
-           
             int[] BubbleArray = new int[startArray.Length];
             startArray.CopyTo(BubbleArray, 0);
             swBubble.Restart();
@@ -513,5 +533,6 @@ namespace Laba4Drug
             }
         }
 
+        
     }
 }
