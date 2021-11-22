@@ -1,14 +1,18 @@
-﻿using System;
+﻿using Google.Apis.Auth.OAuth2;
+using Google.Apis.Services;
+using Google.Apis.Sheets.v4;
+using Microsoft.Office.Interop.Excel;
+using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
-using System.Drawing;
+using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Application = Microsoft.Office.Interop.Excel.Application;
+
 
 
 namespace Laba4Drug
@@ -16,6 +20,13 @@ namespace Laba4Drug
     public partial class Form1 : Form
     {
         int[] startArray;
+        int[] BubbleArray;
+        int[] InsertArray;
+        int[] ShakeArray;
+        int[] QuickArray;
+        int[] BogoArray;
+
+
         Stopwatch swBubble = new Stopwatch();
         Stopwatch swInsert = new Stopwatch();
         Stopwatch swShake = new Stopwatch();
@@ -49,34 +60,34 @@ namespace Laba4Drug
         private void BubbleSort()
         {
            
-            int[] newArray = new int[startArray.Length];
-            startArray.CopyTo(newArray, 0);
+            int[] BubbleArray = new int[startArray.Length];
+            startArray.CopyTo(BubbleArray, 0);
             swBubble.Restart();
             swBubble.Start();
-            for (int i = 1; i < newArray.Length; i++)
+            for (int i = 1; i < BubbleArray.Length; i++)
             {
-                for (int j = 0; j < newArray.Length - 1; j++)
+                for (int j = 0; j < BubbleArray.Length - 1; j++)
                 {
                     if (DownToUp.Checked)
                     {
-                        if (newArray[j + 1] < newArray[j])
+                        if (BubbleArray[j + 1] < BubbleArray[j])
                         {
-                            int n = newArray[j];
-                            newArray[j] = newArray[j + 1];
-                            newArray[j + 1] = n;
+                            int n = BubbleArray[j];
+                            BubbleArray[j] = BubbleArray[j + 1];
+                            BubbleArray[j + 1] = n;
                         }
                     }
                     else if (UpToDown.Checked)
                     {
-                        if (newArray[j + 1] > newArray[j])
+                        if (BubbleArray[j + 1] > BubbleArray[j])
                         {
-                            int n = newArray[j];
-                            newArray[j] = newArray[j + 1];
-                            newArray[j + 1] = n;
+                            int n = BubbleArray[j];
+                            BubbleArray[j] = BubbleArray[j + 1];
+                            BubbleArray[j + 1] = n;
                         }
                         
                     }
-                    ChartUpd(chart1, newArray);
+                    ChartUpd(chart1, BubbleArray);
                 }
             }
             swBubble.Stop();
@@ -111,7 +122,6 @@ namespace Laba4Drug
                     }
                 }
                 ChartUpd(chart5, array);
-
             }
             index++;
             Swap(ref array[index], ref array[maxId]);
@@ -128,11 +138,11 @@ namespace Laba4Drug
         }
         public void QuickSort()
         {
-            int[] newArray = new int[startArray.Length];
-            startArray.CopyTo(newArray, 0);
+            int[] QuickArray = new int[startArray.Length];
+            startArray.CopyTo(QuickArray, 0);
             swQuick.Restart();
             swQuick.Start();
-            newArray = QuickSort(newArray, 0, newArray.Length - 1);
+            QuickArray = QuickSort(QuickArray, 0, QuickArray.Length - 1);
             swQuick.Stop();
             Timers(quickTime, swQuick);
         }
@@ -401,7 +411,7 @@ namespace Laba4Drug
 
         private void закрытьToolStripMenuItem_Click(object sender, EventArgs e)
         {
-
+            Close();
         }
 
         private void очиститьToolStripMenuItem_Click(object sender, EventArgs e)
@@ -409,14 +419,98 @@ namespace Laba4Drug
 
         }
 
-        private void googleToolStripMenuItem_Click(object sender, EventArgs e)
+        private async void googleToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            await readAsy();
+        }
+        async Task readAsy()
+        {
+            try
+            {
+                var serviceValues = GetSheetsService().Spreadsheets.Values;
+                await ReadAsync(serviceValues);
+            }
+            catch (Exception)
+            {
+                MessageBox.Show("Количество ячеек Х не соответствует количеству Y. Не все данные будут занесены в таблицу!", "Предупреждение.");
+            }
+        }
+        private async Task ReadAsync(SpreadsheetsResource.ValuesResource valuesResource)
+        {
+            var response = await valuesResource.Get(SpreadsheetId, ReadRange).ExecuteAsync();
+            var values = response.Values;
+            if (values == null || !values.Any())
+            {
+                MessageBox.Show("Документ пустой!");
+                return;
+            }
+            var header = string.Join(" ", values.First().Select(r => r.ToString()));
+            Console.WriteLine($"Header: {header}");
 
+            List<string> baza = new List<string>();
+            for (int i = 0; i < values.Count; i++)
+            {
+                string pern1 = values[i][0].ToString();
+
+                baza.Add($"{pern1}");
+                dataGridView1.Rows.Clear();
+                int index = 0;
+                startArray = new int[baza.Count];
+
+                foreach (string s in baza)
+                {
+                    var result = s.Split(';');
+                    startArray[index] = Convert.ToInt32(result[0]);
+                    dataGridView1.Rows.Add(result[0]);
+                    index++;
+                }
+            }
         }
 
         private void excelToolStripMenuItem_Click(object sender, EventArgs e)
         {
-
+            openFileDialog1.FileName = String.Empty;
+            DialogResult li = openFileDialog1.ShowDialog();
+            if (li != DialogResult.OK) return;
+            try
+            {
+                dataGridView1.Rows.Clear();
+                Application ObjWorkExcel = new Application();
+                Workbook ObjWorkBook = ObjWorkExcel.Workbooks.Open(openFileDialog1.FileName, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing); //открыть файл
+                Worksheet ObjWorkSheet = (Worksheet)ObjWorkBook.Sheets[1];
+                var lastCell = ObjWorkSheet.Cells.SpecialCells(XlCellType.xlCellTypeLastCell);
+                string sellx = String.Empty;
+                string selly = String.Empty;
+                for (int i = 0; i < lastCell.Row; i++)
+                {
+                    sellx = ObjWorkSheet.Cells[i + 1, 1].Text.ToString();
+                    selly = ObjWorkSheet.Cells[i + 1, 2].Text.ToString();
+                    if (sellx.Trim() != String.Empty && selly.Trim() != String.Empty)
+                        dataGridView1.Rows.Add(sellx, selly);
+                }
+                ObjWorkBook.Close(false, Type.Missing, Type.Missing);
+                ObjWorkExcel.Quit();
+                GC.Collect();
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show("При попытке загрузки из Excel произошла обшика!", "Ошибка!");
+            }
+        }
+        private static readonly string[] Scopes = { SheetsService.Scope.Spreadsheets };
+        private const string SpreadsheetId = "1SHINt3UKLZ4p_tyTRnk7DSgmnyG-3Sk9lnxY73fKrhg";
+        private const string GoogleCredentialsFileName = "laba4-332110-1ebf8c6441c1.json";
+        private const string ReadRange = "Лист1!A:B";
+        private static SheetsService GetSheetsService()
+        {
+            using (var stream = new FileStream(GoogleCredentialsFileName, FileMode.Open, FileAccess.Read))
+            {
+                var serviceInitializer = new BaseClientService.Initializer
+                {
+                    HttpClientInitializer = GoogleCredential.FromStream(stream).CreateScoped(Scopes)
+                };
+                return new SheetsService(serviceInitializer);
+            }
         }
 
     }
